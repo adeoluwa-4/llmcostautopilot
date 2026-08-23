@@ -2,6 +2,89 @@
 
 LLM Cost Autopilot is a provider-neutral routing layer that sits between an application and multiple large-language-model providers. It estimates what a request needs, selects the lowest-cost model likely to meet the quality target, executes the request, and escalates only when the result is inadequate.
 
+## Working MVP
+
+The repository now contains a dependency-free Node.js MVP with:
+
+- `POST /v1/route` for dry-run routing decisions and explanations.
+- `POST /v1/chat/completions` for OpenAI-compatible, non-streaming completions.
+- `GET /v1/models`, `GET /v1/metrics`, and `GET /health`.
+- Capability, context-window, output-token, fixed-route, quality, and cost-budget filtering.
+- Rule-based task inference and complexity scoring.
+- Economy, balanced, and premium model aliases.
+- Deterministic JSON and minimum-output validation.
+- Automatic escalation after retryable provider or validation failures.
+- Actual token-cost accounting and an in-memory operational summary.
+- An optional client-facing bearer token.
+- A mock provider for no-credential local development.
+- A configurable OpenAI-compatible upstream adapter.
+
+The default model names and prices are deliberately illustrative mock values. Configure the model registry with current identifiers and prices before using a real provider.
+
+### Run it
+
+Node.js 20 or newer is required. There are no packages to install.
+
+```bash
+npm test
+npm start
+```
+
+The server listens on `http://127.0.0.1:8787` by default.
+
+Preview a route without spending money:
+
+```bash
+curl http://127.0.0.1:8787/v1/route \
+  -H 'content-type: application/json' \
+  -d '{
+    "messages": [{"role": "user", "content": "Extract the invoice fields as JSON."}],
+    "task": "extraction",
+    "response_format": {"type": "json_object"},
+    "max_cost_usd": 0.01
+  }'
+```
+
+Execute a routed completion:
+
+```bash
+curl http://127.0.0.1:8787/v1/chat/completions \
+  -H 'content-type: application/json' \
+  -d '{
+    "messages": [{"role": "user", "content": "Rewrite this sentence more clearly."}],
+    "quality": "standard",
+    "allow_escalation": true
+  }'
+```
+
+Without upstream configuration, completions use the local mock provider and incur no external cost.
+
+### Connect an upstream
+
+Copy `.env.example` values into your shell or preferred secret manager. The adapter accepts any upstream that implements the OpenAI-compatible `POST /chat/completions` contract:
+
+```bash
+export AUTOPILOT_UPSTREAM_BASE_URL='https://your-upstream.example/v1'
+export AUTOPILOT_UPSTREAM_API_KEY='replace-with-a-real-secret'
+export AUTOPILOT_ECONOMY_MODEL='provider/current-economy-model'
+export AUTOPILOT_BALANCED_MODEL='provider/current-balanced-model'
+export AUTOPILOT_PREMIUM_MODEL='provider/current-premium-model'
+npm start
+```
+
+For a managed multi-provider gateway, use model identifiers returned by that gateway's current model-discovery API or documentation. Do not copy the placeholder identifiers above into production.
+
+To replace the complete registry, set `AUTOPILOT_MODELS_JSON` to a JSON array following the example in `.env.example`. Prices are expressed in USD per one million tokens.
+
+### Current MVP boundaries
+
+- Streaming is explicitly rejected and is the next protocol feature to add.
+- Metrics reset whenever the process restarts.
+- The rule weights and mock prices are configuration seeds, not trained predictions.
+- JSON validation currently confirms syntax; full JSON Schema validation is a later milestone.
+- The upstream adapter targets a common chat-completions contract. Provider-specific capabilities need dedicated adapters.
+- Production use still needs persistent events, rate limiting, encrypted tenant configuration, circuit breakers, and benchmark calibration.
+
 The core promise is not simply "always choose the cheapest model." It is:
 
 > Minimize expected cost while meeting a measurable quality, latency, and reliability target.
