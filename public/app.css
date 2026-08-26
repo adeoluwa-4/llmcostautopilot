@@ -1,13 +1,15 @@
 :root {
   color-scheme: light;
-  --bg: #f3f1ec;
-  --panel: #fbfaf7;
-  --panel-alt: #efede7;
-  --text: #181716;
-  --muted: #625f58;
-  --line: #c9c4ba;
-  --accent: #245c52;
-  --accent-strong: #17463f;
+  --bg: #ebe3d3;
+  --panel: #f8f1e5;
+  --panel-alt: #e5ede5;
+  --text: #191813;
+  --muted: #5b594f;
+  --line: #b9aa92;
+  --accent: #0f6f63;
+  --accent-strong: #0a4d45;
+  --accent-warm: #9f4f32;
+  --accent-soft: #d1b25f;
   --danger: #8a2f28;
 }
 
@@ -42,7 +44,7 @@ button {
   min-height: 42px;
   padding: 0 16px;
   background: var(--accent);
-  color: #f7f4ed;
+  color: #f7f0df;
   cursor: pointer;
 }
 
@@ -60,7 +62,7 @@ button:focus-visible,
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible {
-  outline: 3px solid rgba(36, 92, 82, 0.22);
+  outline: 3px solid rgba(15, 111, 99, 0.24);
   outline-offset: 2px;
 }
 
@@ -73,6 +75,7 @@ p {
 
 h1 {
   max-width: 760px;
+  color: #113d37;
   font-size: clamp(2.25rem, 5vw, 5rem);
   line-height: 0.95;
 }
@@ -134,6 +137,18 @@ dd {
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 8px;
+}
+
+.request-panel {
+  border-top: 4px solid var(--accent);
+}
+
+.result-panel {
+  border-top: 4px solid var(--accent-warm);
+}
+
+.output-section {
+  border-top: 4px solid var(--accent-soft);
 }
 
 .status-panel {
@@ -301,8 +316,8 @@ pre {
   padding: 16px;
   overflow: auto;
   white-space: pre-wrap;
-  background: #24231f;
-  color: #f7f4ed;
+  background: #24251f;
+  color: #f7f0df;
   border-radius: 6px;
 }
 
