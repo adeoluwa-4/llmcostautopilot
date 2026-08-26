@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>LLM Cost Autopilot</title>
+    <link rel="stylesheet" href="/assets/app.css">
+  </head>
+  <body>
+    <main class="shell">
+      <section class="intro" aria-labelledby="page-title">
+        <div>
+          <p class="eyebrow">Local MVP</p>
+          <h1 id="page-title">LLM Cost Autopilot</h1>
+          <p class="summary">
+            Route each prompt to the lowest-cost model that still clears the quality bar. Preview the route,
+            then run the same request through the mock provider or your OpenAI-compatible upstream.
+          </p>
+        </div>
+        <div class="status-panel" aria-live="polite">
+          <span class="status-label">API status</span>
+          <span id="api-status" class="status-value">Checking</span>
+        </div>
+      </section>
+
+      <section class="workspace" aria-label="Routing workspace">
+        <form id="request-form" class="request-panel">
+          <div class="field">
+            <label for="prompt">Prompt</label>
+            <textarea id="prompt" name="prompt" rows="9" required>Summarize this support ticket and identify the customer intent: the user cannot sign in after changing phones, but password reset emails are not arriving.</textarea>
+          </div>
+
+          <div class="control-grid">
+            <div class="field">
+              <label for="task">Task</label>
+              <select id="task" name="task">
+                <option value="">Auto-detect</option>
+                <option value="classification">Classification</option>
+                <option value="summarization">Summarization</option>
+                <option value="extraction">Extraction</option>
+                <option value="coding">Coding</option>
+                <option value="reasoning">Reasoning</option>
+                <option value="creative">Creative</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="quality">Quality target</label>
+              <select id="quality" name="quality">
+                <option value="standard">Standard</option>
+                <option value="low">Low</option>
+                <option value="high">High</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="budget">Max cost, USD</label>
+              <input id="budget" name="budget" type="number" min="0" step="0.0001" placeholder="Optional">
+            </div>
+            <div class="field">
+              <label for="tokens">Max output tokens</label>
+              <input id="tokens" name="tokens" type="number" min="1" max="32000" step="1" value="300">
+            </div>
+          </div>
+
+          <fieldset class="options">
+            <legend>Capabilities</legend>
+            <label><input type="checkbox" name="json"> JSON output</label>
+            <label><input type="checkbox" name="vision"> Vision</label>
+            <label><input type="checkbox" name="tools"> Tool use</label>
+            <label><input type="checkbox" name="escalation" checked> Allow escalation</label>
+          </fieldset>
+
+          <div class="actions">
+            <button type="button" id="preview-route">Preview route</button>
+            <button type="submit">Run completion</button>
+          </div>
+        </form>
+
+        <aside class="result-panel" aria-live="polite">
+          <div class="result-heading">
+            <p class="eyebrow">Decision</p>
+            <h2 id="selected-model">No route yet</h2>
+          </div>
+          <dl class="metrics-grid">
+            <div>
+              <dt>Estimated cost</dt>
+              <dd id="estimated-cost">$0.000000</dd>
+            </div>
+            <div>
+              <dt>Task</dt>
+              <dd id="task-result">Waiting</dd>
+            </div>
+            <div>
+              <dt>Complexity</dt>
+              <dd id="complexity-result">Waiting</dd>
+            </div>
+            <div>
+              <dt>Escalation</dt>
+              <dd id="escalation-result">Waiting</dd>
+            </div>
+          </dl>
+          <div class="details">
+            <h3>Why this route</h3>
+            <ul id="reason-list"></ul>
+          </div>
+        </aside>
+      </section>
+
+      <section class="output-section" aria-label="Completion output">
+        <div class="output-header">
+          <div>
+            <p class="eyebrow">Response</p>
+            <h2>Provider output</h2>
+          </div>
+          <button type="button" id="refresh-metrics">Refresh metrics</button>
+        </div>
+        <pre id="completion-output">Run a completion to see the response here.</pre>
+      </section>
+
+      <section class="models-section" aria-label="Model and usage data">
+        <div>
+          <p class="eyebrow">Registry</p>
+          <h2>Available models</h2>
+          <div id="model-list" class="model-list"></div>
+        </div>
+        <div>
+          <p class="eyebrow">Runtime</p>
+          <h2>Metrics</h2>
+          <dl id="runtime-metrics" class="runtime-metrics"></dl>
+        </div>
+      </section>
+    </main>
+
+    <script type="module" src="/assets/app.js"></script>
+  </body>
+</html>
