@@ -1,4 +1,6 @@
 import { createServer } from "node:http";
+import { readFile } from "node:fs/promises";
+import { extname, join, normalize, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createApp } from "./app.js";
 import { registryFromEnvironment } from "./model-registry.js";
@@ -6,6 +8,14 @@ import { providerFromEnvironment } from "./provider.js";
 import { createRouter } from "./router.js";
 
 const MAX_BODY_BYTES = 1_000_000;
+const PUBLIC_DIR = join(fileURLToPath(new URL(".", import.meta.url)), "..", "public");
+const STATIC_TYPES = {
+  ".css": "text/css; charset=utf-8",
+  ".html": "text/html; charset=utf-8",
+  ".js": "text/javascript; charset=utf-8",
+  ".json": "application/json; charset=utf-8",
+  ".svg": "image/svg+xml",
+};
 
 async function readJson(request) {
   const chunks = [];
@@ -43,6 +53,19 @@ export function createHttpServer(app = buildApp()) {
   return createServer(async (request, reply) => {
     try {
       const url = new URL(request.url || "/", "http://localhost");
+      if (request.method === "GET" && (url.pathname === "/" || url.pathname.startsWith("/assets/"))) {
+        const filePath = resolvePublicFile(url.pathname);
+        if (filePath) {
+          try {
+            const body = await readFile(filePath);
+            reply.writeHead(200, { "content-type": STATIC_TYPES[extname(filePath)] || "application/octet-stream" });
+            reply.end(body);
+            return;
+          } catch (error) {
+            if (error.code !== "ENOENT") throw error;
+          }
+        }
+      }
       const result = await app.dispatch({
         method: request.method || "GET",
         path: url.pathname,
@@ -65,6 +88,14 @@ export function createHttpServer(app = buildApp()) {
       );
     }
   });
+}
+
+function resolvePublicFile(pathname) {
+  const target = pathname === "/" ? "index.html" : pathname.replace(/^\/assets\//, "");
+  const filePath = normalize(join(PUBLIC_DIR, target));
+  const publicRelative = relative(PUBLIC_DIR, filePath);
+  if (publicRelative.startsWith("..") || publicRelative === "" || publicRelative.includes("..")) return undefined;
+  return filePath;
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
