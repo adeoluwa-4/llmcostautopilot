@@ -9,6 +9,7 @@ The repository now contains a dependency-free Node.js MVP with:
 - `POST /v1/route` for dry-run routing decisions and explanations.
 - `POST /v1/chat/completions` for OpenAI-compatible, non-streaming completions.
 - `GET /v1/models`, `GET /v1/metrics`, and `GET /health`.
+- A local browser console at `/` for route previews, completions, registry inspection, and runtime metrics.
 - Capability, context-window, output-token, fixed-route, quality, and cost-budget filtering.
 - Rule-based task inference and complexity scoring.
 - Economy, balanced, and premium model aliases.
@@ -30,7 +31,14 @@ npm test
 npm start
 ```
 
-The server listens on `http://127.0.0.1:8787` by default.
+The server listens on `http://127.0.0.1:8787` by default. Open that URL in a browser to use the local MVP console.
+
+The browser console lets you:
+
+- Preview the selected route before making a completion request.
+- Run a routed completion through the configured provider.
+- Inspect model tiers, quality scores, context limits, estimated cost, and runtime metrics.
+- Test budget, quality target, output token, capability, and escalation controls without a paywall.
 
 Preview a route without spending money:
 
