@@ -104,3 +104,18 @@ test("serves the app through the HTTP adapter", async (t) => {
   assert.equal(response.status, 200);
   assert.equal(payload.selected_model, "economy");
 });
+
+test("serves the browser frontend from the HTTP adapter", async (t) => {
+  const server = createHttpServer(appWith());
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  t.after(() => server.close());
+  const address = server.address();
+
+  const response = await fetch(`http://127.0.0.1:${address.port}/`);
+  const html = await response.text();
+
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get("content-type"), /text\/html/);
+  assert.match(html, /LLM Cost Autopilot/);
+  assert.match(html, /\/assets\/app\.js/);
+});
