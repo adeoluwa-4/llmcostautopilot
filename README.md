@@ -1,5 +1,9 @@
 # LLM Cost Autopilot
 
-LLM Cost Autopilot helps an AI app choose the least expensive model that can still do a request well. It looks at the task, budget, needed features, and quality target, then picks a model and can move to a stronger one if the first answer is not good enough.
+## What it does
 
-I built the routing rules, model list, cost estimates, quality checks, provider connection, API, tests, and local browser console with Node.js. It also includes a mock provider, so people can try the system without using a paid AI account.
+LLM Cost Autopilot helps an AI app choose the least expensive model that can still do a request well. It checks the task, budget, needed features, and quality target, then can move to a stronger model when needed.
+
+## What I built
+
+I built the routing rules, model list, cost estimates, quality checks, provider connection, API, tests, and browser console with Node.js. Run `npm test` to test it and `npm start` to open the local app at `http://127.0.0.1:8787`.
