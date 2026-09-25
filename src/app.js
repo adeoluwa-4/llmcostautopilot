@@ -1,5 +1,6 @@
 import { estimateCost, publicModel } from "./model-registry.js";
 import { ProviderError } from "./provider.js";
+import { createGroundedRequest, createRagStore, latestUserQuery, RagError } from "./rag.js";
 import { RoutingError } from "./router.js";
 
 const JSON_HEADERS = { "content-type": "application/json; charset=utf-8" };
@@ -17,6 +18,11 @@ function errorResponse(error) {
   if (error instanceof ProviderError) {
     return response(error.status, {
       error: { type: "provider_error", code: "upstream_failure", message: error.message },
+    });
+  }
+  if (error instanceof RagError) {
+    return response(error.status, {
+      error: { type: "rag_error", code: error.code, message: error.message, details: error.details },
     });
   }
   return response(500, {
@@ -45,7 +51,7 @@ function bearerToken(headers) {
   return value.startsWith("Bearer ") ? value.slice(7) : "";
 }
 
-export function createApp({ router, registry, provider, apiKey } = {}) {
+export function createApp({ router, registry, provider, apiKey, ragStore = createRagStore() } = {}) {
   if (!router || !registry || !provider) throw new Error("router, registry, and provider are required");
 
   const metrics = {
@@ -53,10 +59,41 @@ export function createApp({ router, registry, provider, apiKey } = {}) {
     completions: 0,
     failed: 0,
     escalations: 0,
+    rag_ingestions: 0,
+    rag_searches: 0,
+    rag_context_chunks: 0,
     estimated_cost_usd: 0,
     actual_cost_usd: 0,
     routes_by_model: Object.fromEntries(registry.map((model) => [model.id, 0])),
   };
+
+  function chatResponse(result, plan, extra = {}) {
+    return {
+      id: result.completion.id,
+      object: "chat.completion",
+      created: Math.floor(Date.now() / 1_000),
+      model: result.model.id,
+      choices: [
+        {
+          index: 0,
+          message: { role: "assistant", content: result.completion.text },
+          finish_reason: result.completion.finishReason,
+        },
+      ],
+      usage: result.usage,
+      autopilot: {
+        selected_model: result.model.id,
+        provider_model_id: result.model.providerModelId,
+        tier: result.model.tier,
+        task: plan.task,
+        complexity: plan.complexity,
+        reasons: plan.reasons,
+        attempts: result.attempts,
+        actual_cost_usd: Number(result.actualCost.toFixed(6)),
+      },
+      ...extra,
+    };
+  }
 
   async function complete(request, plan) {
     const attempts = [];
@@ -134,7 +171,24 @@ export function createApp({ router, registry, provider, apiKey } = {}) {
           return response(200, { object: "list", data: registry.map(publicModel) });
         }
         if (method === "GET" && path === "/v1/metrics") {
-          return response(200, { ...metrics });
+          return response(200, { ...metrics, rag: ragStore.stats() });
+        }
+        if (method === "GET" && path === "/v1/rag/documents") {
+          return response(200, { object: "list", data: ragStore.listDocuments() });
+        }
+        if (method === "GET" && path === "/v1/rag/stats") {
+          return response(200, { object: "rag.stats", ...ragStore.stats() });
+        }
+        if (method === "POST" && path === "/v1/rag/documents") {
+          const document = ragStore.ingest(body);
+          metrics.rag_ingestions += 1;
+          return response(201, { object: "rag.document", ...document });
+        }
+        if (method === "POST" && path === "/v1/rag/search") {
+          const result = ragStore.search(body);
+          metrics.rag_searches += 1;
+          metrics.rag_context_chunks += result.matches.length;
+          return response(200, { object: "rag.search", ...result });
         }
         if (method === "POST" && path === "/v1/route") {
           const plan = router.route(body);
@@ -171,33 +225,52 @@ export function createApp({ router, registry, provider, apiKey } = {}) {
 
           return response(
             200,
-            {
-              id: result.completion.id,
-              object: "chat.completion",
-              created: Math.floor(Date.now() / 1_000),
-              model: result.model.id,
-              choices: [
-                {
-                  index: 0,
-                  message: { role: "assistant", content: result.completion.text },
-                  finish_reason: result.completion.finishReason,
-                },
-              ],
-              usage: result.usage,
-              autopilot: {
-                selected_model: result.model.id,
-                provider_model_id: result.model.providerModelId,
-                tier: result.model.tier,
-                task: plan.task,
-                complexity: plan.complexity,
-                reasons: plan.reasons,
-                attempts: result.attempts,
-                actual_cost_usd: Number(result.actualCost.toFixed(6)),
-              },
-            },
+            chatResponse(result, plan),
             {
               "x-autopilot-model": result.model.id,
               "x-autopilot-cost-usd": result.actualCost.toFixed(6),
+            },
+          );
+        }
+        if (method === "POST" && path === "/v1/rag/chat") {
+          if (!body || typeof body !== "object" || Array.isArray(body)) {
+            throw new RagError("invalid_request", "Request body must be a JSON object");
+          }
+          if (body?.stream === true) {
+            return response(400, {
+              error: { type: "invalid_request_error", code: "streaming_not_implemented", message: "Streaming is not available in this MVP" },
+            });
+          }
+          const query = body?.query || latestUserQuery(body?.messages);
+          const retrieval = ragStore.buildContext({
+            query,
+            top_k: body?.rag?.top_k || body?.top_k,
+            document_id: body?.rag?.document_id || body?.document_id,
+          });
+          metrics.rag_searches += 1;
+          metrics.rag_context_chunks += retrieval.matches.length;
+          const groundedRequest = createGroundedRequest(body, retrieval);
+          const plan = router.route(groundedRequest);
+          metrics.routes_by_model[plan.selected.id] += 1;
+          metrics.estimated_cost_usd += plan.estimates[plan.selected.id];
+          const result = await complete(groundedRequest, plan);
+          metrics.completions += 1;
+          metrics.actual_cost_usd += result.actualCost;
+
+          return response(
+            200,
+            chatResponse(result, plan, {
+              rag: {
+                query: retrieval.query,
+                indexed_documents: retrieval.indexed_documents,
+                indexed_chunks: retrieval.indexed_chunks,
+                matches: retrieval.matches,
+              },
+            }),
+            {
+              "x-autopilot-model": result.model.id,
+              "x-autopilot-cost-usd": result.actualCost.toFixed(6),
+              "x-rag-context-chunks": String(retrieval.matches.length),
             },
           );
         }
