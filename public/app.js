@@ -11,6 +11,13 @@ const reasonList = document.querySelector("#reason-list");
 const completionOutput = document.querySelector("#completion-output");
 const modelList = document.querySelector("#model-list");
 const runtimeMetrics = document.querySelector("#runtime-metrics");
+const ragTitle = document.querySelector("#rag-title");
+const ragDocument = document.querySelector("#rag-document");
+const ragQuery = document.querySelector("#rag-query");
+const ingestDocumentButton = document.querySelector("#ingest-document");
+const searchRagButton = document.querySelector("#search-rag");
+const runRagChatButton = document.querySelector("#run-rag-chat");
+const ragOutput = document.querySelector("#rag-output");
 
 function dollars(value) {
   return `$${Number(value || 0).toFixed(6)}`;
@@ -106,6 +113,8 @@ function renderMetrics(metrics) {
     ["Completions", metrics.completions],
     ["Failed", metrics.failed],
     ["Escalations", metrics.escalations],
+    ["RAG docs", metrics.rag?.documents || 0],
+    ["RAG chunks", metrics.rag?.chunks || 0],
     ["Estimated spend", dollars(metrics.estimated_cost_usd)],
     ["Actual spend", dollars(metrics.actual_cost_usd)],
   ];
@@ -114,10 +123,37 @@ function renderMetrics(metrics) {
   );
 }
 
+function renderRagMatches(matches) {
+  if (!matches.length) {
+    ragOutput.textContent = "No matching chunks found.";
+    return;
+  }
+
+  const fragment = document.createDocumentFragment();
+  for (const match of matches) {
+    const article = document.createElement("article");
+    const heading = document.createElement("h3");
+    const meta = document.createElement("p");
+    const text = document.createElement("p");
+    heading.textContent = match.title;
+    meta.textContent = `${match.id} · score ${match.score}`;
+    text.textContent = match.text;
+    article.append(heading, meta, text);
+    fragment.append(article);
+  }
+  ragOutput.replaceChildren(fragment);
+}
+
 function setBusy(isBusy) {
   form.classList.toggle("is-busy", isBusy);
   previewButton.disabled = isBusy;
   form.querySelector("button[type='submit']").disabled = isBusy;
+}
+
+function setRagBusy(isBusy) {
+  ingestDocumentButton.disabled = isBusy;
+  searchRagButton.disabled = isBusy;
+  runRagChatButton.disabled = isBusy;
 }
 
 async function previewRoute() {
@@ -170,6 +206,74 @@ async function loadMetrics() {
   renderMetrics(metrics);
 }
 
+async function ingestDocument() {
+  setRagBusy(true);
+  ragOutput.textContent = "Indexing document...";
+  try {
+    const document = await api("/v1/rag/documents", {
+      method: "POST",
+      body: JSON.stringify({
+        title: ragTitle.value,
+        text: ragDocument.value,
+      }),
+    });
+    ragOutput.textContent = `Indexed ${document.title} with ${document.chunks} chunk${document.chunks === 1 ? "" : "s"}.`;
+    await loadMetrics();
+  } catch (error) {
+    ragOutput.textContent = error.message;
+  } finally {
+    setRagBusy(false);
+  }
+}
+
+async function searchRag() {
+  setRagBusy(true);
+  ragOutput.textContent = "Searching local index...";
+  try {
+    const result = await api("/v1/rag/search", {
+      method: "POST",
+      body: JSON.stringify({ query: ragQuery.value, top_k: 4 }),
+    });
+    renderRagMatches(result.matches);
+    await loadMetrics();
+  } catch (error) {
+    ragOutput.textContent = error.message;
+  } finally {
+    setRagBusy(false);
+  }
+}
+
+async function runRagChat() {
+  setRagBusy(true);
+  completionOutput.textContent = "Running RAG completion...";
+  try {
+    const result = await api("/v1/rag/chat", {
+      method: "POST",
+      body: JSON.stringify({
+        messages: [{ role: "user", content: ragQuery.value }],
+        top_k: 4,
+        allow_escalation: true,
+      }),
+    });
+    renderRoute({
+      selected_model: result.autopilot.selected_model,
+      tier: result.autopilot.tier,
+      estimated_cost_usd: result.autopilot.attempts.at(-1)?.estimated_cost_usd || 0,
+      task: result.autopilot.task,
+      complexity: result.autopilot.complexity,
+      escalation_plan: result.autopilot.attempts.map((attempt) => attempt.model),
+      reasons: result.autopilot.reasons,
+    });
+    renderRagMatches(result.rag.matches);
+    completionOutput.textContent = result.choices[0].message.content;
+    await loadMetrics();
+  } catch (error) {
+    completionOutput.textContent = error.message;
+  } finally {
+    setRagBusy(false);
+  }
+}
+
 async function boot() {
   try {
     const [health, models] = await Promise.all([api("/health"), api("/v1/models")]);
@@ -187,5 +291,8 @@ async function boot() {
 previewButton.addEventListener("click", previewRoute);
 form.addEventListener("submit", runCompletion);
 refreshMetricsButton.addEventListener("click", loadMetrics);
+ingestDocumentButton.addEventListener("click", ingestDocument);
+searchRagButton.addEventListener("click", searchRag);
+runRagChatButton.addEventListener("click", runRagChat);
 
 boot();
