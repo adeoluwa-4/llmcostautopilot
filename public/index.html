@@ -105,6 +105,42 @@
         </aside>
       </section>
 
+      <section class="rag-section" aria-label="RAG knowledge pipeline">
+        <div class="rag-editor">
+          <div class="section-title">
+            <p class="eyebrow">Knowledge</p>
+            <h2>Local RAG pipeline</h2>
+          </div>
+          <div class="field">
+            <label for="rag-title">Document title</label>
+            <input id="rag-title" type="text" value="Support Runbook">
+          </div>
+          <div class="field">
+            <label for="rag-document">Document text</label>
+            <textarea id="rag-document" rows="7">If a customer changes phones and password reset emails stop arriving, ask them to verify the new device first. Password reset delivery resumes after device verification completes. If verification fails, escalate to account recovery.</textarea>
+          </div>
+          <div class="actions">
+            <button type="button" id="ingest-document">Index document</button>
+          </div>
+        </div>
+
+        <div class="rag-results">
+          <div class="section-title">
+            <p class="eyebrow">Retrieval</p>
+            <h2>Search context</h2>
+          </div>
+          <div class="field">
+            <label for="rag-query">Question</label>
+            <textarea id="rag-query" rows="5">What should support do when reset emails stop after a phone change?</textarea>
+          </div>
+          <div class="actions">
+            <button type="button" id="search-rag">Search index</button>
+            <button type="button" id="run-rag-chat">Run RAG completion</button>
+          </div>
+          <div id="rag-output" class="rag-output">Index a document, then search to see retrieved chunks.</div>
+        </div>
+      </section>
+
       <section class="output-section" aria-label="Completion output">
         <div class="output-header">
           <div>
