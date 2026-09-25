@@ -133,6 +133,7 @@ dd {
 .request-panel,
 .result-panel,
 .output-section,
+.rag-section > div,
 .models-section > div {
   background: var(--panel);
   border: 1px solid var(--line);
@@ -149,6 +150,14 @@ dd {
 
 .output-section {
   border-top: 4px solid var(--accent-soft);
+}
+
+.rag-editor {
+  border-top: 4px solid var(--accent-strong);
+}
+
+.rag-results {
+  border-top: 4px solid var(--accent-warm);
 }
 
 .status-panel {
@@ -180,6 +189,7 @@ dd {
 .request-panel,
 .result-panel,
 .output-section,
+.rag-section > div,
 .models-section > div {
   padding: 18px;
 }
@@ -305,9 +315,52 @@ textarea {
   line-height: 1.35;
 }
 
+.rag-section,
 .output-section,
 .models-section {
   margin-top: 18px;
+}
+
+.rag-section {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.9fr);
+  gap: 18px;
+}
+
+.rag-editor,
+.rag-results,
+.section-title {
+  display: grid;
+  gap: 12px;
+}
+
+.rag-output {
+  display: grid;
+  gap: 10px;
+  min-height: 130px;
+  margin-top: 14px;
+  padding: 14px;
+  background: var(--panel-alt);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.rag-output article {
+  display: grid;
+  gap: 5px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.rag-output article:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.rag-output p {
+  color: var(--muted);
 }
 
 pre {
@@ -373,6 +426,7 @@ pre {
 
   .intro,
   .workspace,
+  .rag-section,
   .models-section,
   .model-row {
     grid-template-columns: 1fr;
